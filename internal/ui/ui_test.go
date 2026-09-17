@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -102,4 +103,98 @@ func TestRefreshAndFailed(t *testing.T) {
 	if !strings.Contains(m.View(), "q quit  r refresh") {
 		t.Fatalf("missing footer: %q", m.View())
 	}
+}
+
+func TestListNavigationAndLayout(t *testing.T) {
+	t.Parallel()
+
+	const n = 40
+	var loads int
+	repos := make([]stats.Repo, n)
+	for i := range repos {
+		repos[i] = stats.Repo{
+			Name:      fmt.Sprintf("repo-%02d-with-a-very-long-name-that-must-truncate-XXXXXXXXXXXX", i),
+			Stars:     i,
+			Language:  "Go",
+			UpdatedAt: "2026-01-02",
+		}
+	}
+	m := New("octocat", func(fresh bool) (stats.Snapshot, error) {
+		loads++
+		return stats.Snapshot{User: "octocat", ReposCount: n, Stars: 99, Repos: repos}, nil
+	})
+	next, _ := m.Update(m.Init()())
+	m = next.(Model)
+	next, cmd := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	if cmd != nil {
+		t.Fatal("resize must not fetch")
+	}
+	m = next.(Model)
+
+	view := m.View()
+	if !strings.Contains(view, "> ") {
+		t.Fatalf("missing selection: %q", view)
+	}
+	if strings.Contains(view, "XXXXXXXXXXXX") {
+		t.Fatalf("name not truncated: %q", view)
+	}
+	if !strings.Contains(view, "2026-01-02") {
+		t.Fatalf("missing updated: %q", view)
+	}
+	if strings.Contains(view, "repo-39") {
+		t.Fatalf("viewport did not clip: %q", view)
+	}
+	for _, line := range strings.Split(view, "\n") {
+		plain := stripANSI(line)
+		if len([]rune(plain)) > 80 {
+			t.Fatalf("line wider than 80: %d %q", len([]rune(plain)), plain)
+		}
+	}
+
+	before := loads
+	for _, key := range []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")},
+		tea.KeyMsg{Type: tea.KeyUp},
+	} {
+		next, cmd = m.Update(key)
+		if cmd != nil {
+			t.Fatalf("select %T started a fetch", key)
+		}
+		m = next.(Model)
+	}
+	if loads != before {
+		t.Fatalf("select fetched %d extra times", loads-before)
+	}
+
+	for i := 0; i < 30; i++ {
+		next, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+		m = next.(Model)
+	}
+	view = m.View()
+	if strings.Contains(view, "repo-00") {
+		t.Fatalf("did not scroll off first repo: %q", view)
+	}
+	if !strings.Contains(view, "> ") {
+		t.Fatalf("lost selection after scroll: %q", view)
+	}
+}
+
+func stripANSI(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] == '\x1b' {
+			for i < len(s) && s[i] != 'm' {
+				i++
+			}
+			if i < len(s) {
+				i++
+			}
+			continue
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
 }
