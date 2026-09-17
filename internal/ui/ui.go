@@ -156,8 +156,11 @@ func (m Model) repoRows() int {
 	if h < 1 {
 		h = defaultHeight
 	}
-	// header + languages + column titles + footer
+	// header + languages + skipped note + column titles + footer
 	used := 1 + len(m.snap.Languages) + 1 + 1
+	if m.snap.Skipped > 0 {
+		used++
+	}
 	rows := h - used
 	if rows < 1 {
 		return 1
@@ -195,10 +198,14 @@ func (m Model) writeReady(b *strings.Builder, w int) {
 	head := fmt.Sprintf("@%s   %d repos   %d stars   %s", m.snap.User, m.snap.ReposCount, m.snap.Stars, src)
 	fmt.Fprintf(b, "%s\n", headerStyle.Render(trunc(head, w)))
 	for _, l := range m.snap.Languages {
-		name := pad(trunc(l.Name, 12), 12)
-		name = lipgloss.NewStyle().Foreground(langColor(l.Name)).Render(name)
-		pct := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("%5.1f%%", l.Percent))
-		fmt.Fprintf(b, "%s %s %s\n", name, colorBar(l.Percent, l.Name), pct)
+		name := lipgloss.NewStyle().Width(12).MaxWidth(12).Foreground(langColor(l.Name)).Render(trunc(l.Name, 12))
+		pct := lipgloss.NewStyle().Width(7).Align(lipgloss.Right).Faint(true).Render(fmt.Sprintf("%.1f%%", l.Percent))
+		row := lipgloss.JoinHorizontal(lipgloss.Center, name, " ", colorBar(l.Percent, l.Name), " ", pct)
+		fmt.Fprintf(b, "%s\n", row)
+	}
+	if m.snap.Skipped > 0 {
+		note := fmt.Sprintf("%d repos omitted (no language data)", m.snap.Skipped)
+		fmt.Fprintf(b, "%s\n", colStyle.Render(trunc(note, w)))
 	}
 
 	nameW := w - 2 - 1 - 5 - 1 - 8 - 1 - 10

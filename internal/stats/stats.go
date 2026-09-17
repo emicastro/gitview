@@ -31,6 +31,7 @@ type Snapshot struct {
 	Stars      int
 	Languages  []Language
 	Repos      []Repo
+	Skipped    int `json:"-"`
 }
 
 // Input is one included repo plus its language byte map.

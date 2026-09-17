@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -139,7 +141,7 @@ func runWith(ctx context.Context, args []string, d deps) int {
 			return 1
 		}
 	}
-	p := tea.NewProgram(m, tea.WithContext(ctx))
+	p := tea.NewProgram(m, tea.WithContext(ctx), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(d.stderr, err)
 		return 1
@@ -166,7 +168,11 @@ func load(ctx context.Context, cfg config, d deps) (stats.Snapshot, error) {
 	}
 
 	c := github.New(d.baseURL, token, d.http)
-	repos, err := c.Fetch(ctx, cfg.user, cfg.includeForks, d.stderr)
+	skips := &skipLog{}
+	if cfg.json {
+		skips.w = d.stderr
+	}
+	repos, err := c.Fetch(ctx, cfg.user, cfg.includeForks, skips)
 	if err != nil {
 		return stats.Snapshot{}, err
 	}
@@ -184,6 +190,7 @@ func load(ctx context.Context, cfg config, d deps) (stats.Snapshot, error) {
 		})
 	}
 	snap := stats.Build(cfg.user, d.now(), false, in, cfg.top)
+	snap.Skipped = int(skips.n.Load())
 	if d.cacheDir != "" {
 		if err := store.Put(cfg.user, snap); err != nil {
 			fmt.Fprintf(d.stderr, "cache write: %v\n", err)
@@ -232,4 +239,19 @@ func parseArgs(args []string, stderr io.Writer) (config, error) {
 	}
 
 	return cfg, nil
+}
+
+// skipLog counts skip warnings. In JSON mode it also copies them to stderr;
+// the TUI must not print them (they corrupt the screen).
+type skipLog struct {
+	w io.Writer
+	n atomic.Int32
+}
+
+func (s *skipLog) Write(p []byte) (int, error) {
+	s.n.Add(int32(bytes.Count(p, []byte{'\n'})))
+	if s.w == nil {
+		return len(p), nil
+	}
+	return s.w.Write(p)
 }

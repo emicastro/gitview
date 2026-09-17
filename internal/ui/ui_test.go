@@ -105,6 +105,45 @@ func TestRefreshAndFailed(t *testing.T) {
 	}
 }
 
+func TestLanguageRowsLeftAligned(t *testing.T) {
+	t.Parallel()
+
+	m := New("octocat", func(fresh bool) (stats.Snapshot, error) {
+		return stats.Snapshot{
+			User: "octocat",
+			Languages: []stats.Language{
+				{Name: "JavaScript", Bytes: 100, Percent: 25.6},
+				{Name: "HTML", Bytes: 80, Percent: 22.3},
+			},
+			Skipped: 4,
+		}, nil
+	})
+	next, _ := m.Update(m.Init()())
+	m = next.(Model)
+	next, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = next.(Model)
+	view := m.View()
+	if strings.Contains(view, "skip ") {
+		t.Fatalf("skip warnings in TUI: %q", view)
+	}
+	if !strings.Contains(stripANSI(view), "4 repos omitted") {
+		t.Fatalf("missing skip note: %q", view)
+	}
+	js := 0
+	for _, line := range strings.Split(stripANSI(view), "\n") {
+		if !strings.Contains(line, "JavaScript") {
+			continue
+		}
+		js++
+		if strings.Index(line, "JavaScript") > 2 {
+			t.Fatalf("JavaScript not left-aligned: %q", line)
+		}
+	}
+	if js != 1 {
+		t.Fatalf("JavaScript appeared %d times in %q", js, view)
+	}
+}
+
 func TestListNavigationAndLayout(t *testing.T) {
 	t.Parallel()
 
