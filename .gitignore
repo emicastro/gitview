@@ -6,3 +6,5 @@ docs/adr/0000-template.md
 
 # Secrets (never commit; gitview reads GITHUB_TOKEN from the environment)
 .env
+.env.local
+gitview
