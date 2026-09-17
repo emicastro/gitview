@@ -47,5 +47,5 @@ Each task is one Implement session and ends in a runnable check.
 
 ## Group 8 — Wrap-up (Slice 5)
 
-- [ ] **8.1** README: build, `export GITHUB_TOKEN`, flags, limits, “token is never printed”. Confirm `.env` ignored. Full verify recipe.
+- [x] **8.1** README: build, `export GITHUB_TOKEN`, flags, limits, “token is never printed”. Confirm `.env` ignored. Full verify recipe.
       Check: `gofmt -l . | grep . && exit 1; go vet ./...; go test ./...; go test -race ./...`
