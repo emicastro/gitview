@@ -94,30 +94,52 @@ func TestTopN(t *testing.T) {
 	}
 }
 
-func TestSortReposAndStars(t *testing.T) {
+func TestExcludeHTMLCSSAndUpdated(t *testing.T) {
 	t.Parallel()
 
+	sum := SumLanguages([]map[string]int64{
+		{"Go": 100, "HTML": 80, "CSS": 20, "Python": 50},
+	})
+	got := TopN(Exclude(sum, markupLangs...), 8)
+	for _, l := range got {
+		if l.Name == "HTML" || l.Name == "CSS" || l.Name == "Other" {
+			t.Fatalf("unexpected %q in %#v", l.Name, got)
+		}
+	}
+	if len(got) != 2 || got[0].Name != "Go" || got[1].Name != "Python" {
+		t.Fatalf("got %#v", got)
+	}
+	if got[0].Percent != 66.7 || got[1].Percent != 33.3 {
+		t.Fatalf("percents %#v (should ignore HTML/CSS bytes)", got)
+	}
+
 	in := []Repo{
-		{Name: "b", Stars: 10},
-		{Name: "a", Stars: 10},
-		{Name: "c", Stars: 2},
+		{Name: "b", UpdatedAt: "2026-01-02"},
+		{Name: "a", UpdatedAt: "2026-01-02"},
+		{Name: "old", UpdatedAt: "2020-01-01"},
 	}
-	got := SortRepos(in)
-	want := []Repo{
-		{Name: "a", Stars: 10},
-		{Name: "b", Stars: 10},
-		{Name: "c", Stars: 2},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("got %#v, want %#v", got, want)
+	sorted := SortByUpdated(in)
+	if sorted[0].Name != "a" || sorted[1].Name != "b" || sorted[2].Name != "old" {
+		t.Fatalf("sort %#v", sorted)
 	}
 	if in[0].Name != "b" {
-		t.Fatalf("SortRepos mutated input")
+		t.Fatal("SortByUpdated mutated input")
 	}
-	if TotalStars(in) != 22 {
-		t.Fatalf("TotalStars = %d, want 22", TotalStars(in))
+	vis := Visible(sorted, false)
+	if len(vis) != 3 {
+		t.Fatalf("short list Visible = %d", len(vis))
 	}
-	if TotalStars(nil) != 0 {
-		t.Fatalf("TotalStars(nil) = %d", TotalStars(nil))
+	var many []Repo
+	for i := 0; i < 10; i++ {
+		many = append(many, Repo{Name: string(rune('a' + i)), UpdatedAt: "2026-01-02"})
+	}
+	if n := len(Visible(many, false)); n != 5 {
+		t.Fatalf("Visible default %d", n)
+	}
+	if n := len(Visible(many, true)); n != 10 {
+		t.Fatalf("Visible all %d", n)
+	}
+	if TotalStars([]Repo{{Stars: 10}, {Stars: 12}}) != 22 || TotalStars(nil) != 0 {
+		t.Fatal("TotalStars")
 	}
 }

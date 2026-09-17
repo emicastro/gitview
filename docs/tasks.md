@@ -56,3 +56,14 @@ Each task is one Implement session and ends in a runnable check.
       Check: `go test -race -count=1 ./internal/github`
 - [x] **9.2** TUI: colored language bars, column headers (name / stars / language / updated), 0 stars as em dash, selected row highlighted. Still usable at 80×24.
       Check: `go test -race -count=1 ./internal/ui`
+
+## Group 10 — Recent repos default; drop HTML/CSS
+
+- [x] **10.1** ADR 0005 (default 5 recent + `-all`, cache stores full list) and ADR 0006 (exclude HTML and CSS from aggregation, not folded into Other). Patch requirements, design, README (`-all`, heading **Recently updated**, HTML/CSS omitted from bars).
+      Check: `test -f docs/adr/0005-recent-repos-default.md && test -f docs/adr/0006-exclude-html-css.md`
+- [x] **10.2** `internal/stats`: exclude `HTML`/`CSS` before TopN; sort repos by `updated_at` desc, name asc; helper to take first 5. Tests: HTML/CSS absent from TopN and from Other; percents sum over remaining; updated sort; Take 5.
+      Check: `go test -race -count=1 ./internal/stats`
+- [x] **10.3** CLI `-all` (default false). `Build`/load: snapshot languages without HTML/CSS; `Repos` is 5 unless `-all`. JSON `repos` length follows that; `repos_count`/`stars` remain full included totals. Cache file still has the full repo list (or enough to serve `-all` on hit without network).
+      Check: `go test -race -count=1 -run 'TestParseArgs|TestRunJSON' .`
+- [x] **10.4** TUI: bars, blank line, rule, heading `Recently updated`, then 5 rows (or all if `-all`). Same columns. Viewport/`j`/`k` on that list only. 80×24 test still passes.
+      Check: `go test -race -count=1 ./internal/ui`

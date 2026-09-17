@@ -17,7 +17,7 @@ func TestInitAndLoadingView(t *testing.T) {
 	m := New("octocat", func(fresh bool) (stats.Snapshot, error) {
 		t.Fatal("load should not run until the cmd is invoked")
 		return stats.Snapshot{}, nil
-	})
+	}, false)
 	if m.State() != "loading" {
 		t.Fatalf("state = %s", m.State())
 	}
@@ -34,7 +34,7 @@ func TestInitAndLoadingView(t *testing.T) {
 func TestQuitKeys(t *testing.T) {
 	t.Parallel()
 
-	m := New("octocat", nil)
+	m := New("octocat", nil, false)
 	msgs := []tea.Msg{
 		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")},
 		tea.KeyMsg{Type: tea.KeyCtrlC},
@@ -63,7 +63,7 @@ func TestRefreshAndFailed(t *testing.T) {
 			return stats.Snapshot{}, errors.New("user not found: octocat")
 		}
 		return stats.Snapshot{User: "octocat", ReposCount: 1, Stars: 2}, nil
-	})
+	}, false)
 
 	cmd := m.Init()
 	next, _ := m.Update(cmd())
@@ -100,6 +100,9 @@ func TestRefreshAndFailed(t *testing.T) {
 	if !strings.Contains(m.View(), "@octocat") {
 		t.Fatalf("ready view = %q", m.View())
 	}
+	if !strings.Contains(m.View(), "Recently updated") {
+		t.Fatalf("missing heading: %q", m.View())
+	}
 	if !strings.Contains(m.View(), "q quit  r refresh") {
 		t.Fatalf("missing footer: %q", m.View())
 	}
@@ -117,7 +120,7 @@ func TestLanguageRowsLeftAligned(t *testing.T) {
 			},
 			Skipped: 4,
 		}, nil
-	})
+	}, false)
 	next, _ := m.Update(m.Init()())
 	m = next.(Model)
 	next, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
@@ -161,7 +164,7 @@ func TestListNavigationAndLayout(t *testing.T) {
 	m := New("octocat", func(fresh bool) (stats.Snapshot, error) {
 		loads++
 		return stats.Snapshot{User: "octocat", ReposCount: n, Stars: 99, Repos: repos}, nil
-	})
+	}, true)
 	next, _ := m.Update(m.Init()())
 	m = next.(Model)
 	next, cmd := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})

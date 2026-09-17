@@ -4,7 +4,7 @@ Status: accepted
 Date: 2026-09-17
 Source of truth for requirements: `docs/requirements.md`.
 
-Cites `docs/adr/0001-github-token-required.md`, `docs/adr/0002-stdlib-http.md`, `docs/adr/0003-bubbletea-tui.md`, `docs/adr/0004-authenticated-private-repos.md`.
+Cites `docs/adr/0001-github-token-required.md`, `docs/adr/0002-stdlib-http.md`, `docs/adr/0003-bubbletea-tui.md`, `docs/adr/0004-authenticated-private-repos.md`, `docs/adr/0005-recent-repos-default.md`, `docs/adr/0006-exclude-html-css.md`.
 
 ## Process
 
@@ -45,8 +45,8 @@ Shared by `-json` and the TUI:
 3. Client (ADR 0002, ADR 0004): `GET /user`. If that login matches `<user>`, `GET /user/repos?per_page=100&affiliation=owner`; else `GET /users/{user}/repos?per_page=100&type=owner`. Paginate `Link`. Timeout 10s. `User-Agent: gitview/0.1`. `Authorization: Bearer <token>`.
 4. Drop `fork==true` unless `-forks`.
 5. At most 4 concurrent `GET /repos/{owner}/{repo}/languages`. One-off failure: skip repo, warn on stderr, continue.
-6. `stats`: sum bytes by language; `TopN(n)` + `Other`; repos by stars desc, name asc; total stars = sum of included `stargazers_count`.
-7. Write cache: same snapshot as JSON stdout. **No token field.**
+6. `stats`: sum bytes; drop `HTML`/`CSS` (ADR 0006); `TopN(n)` + `Other`; repos by `updated_at` desc, name asc; total stars = sum of included `stargazers_count`. Snapshot.Repos is the **full** sorted list (ADR 0005).
+7. Write cache: full snapshot (all repos). **No token field.** JSON/TUI display 5 repos unless `-all`.
 
 Errors: 404 → `user not found: <user>`, exit 1. 401 → `github authentication failed`, exit 1. 403 → rate-limit message including reset if `X-RateLimit-Reset` is present, exit 1. Corrupt cache that cannot be ignored → exit 1. TUI shows fetch errors in-view; spinner must not hang.
 
@@ -58,7 +58,7 @@ JSON: exact schema in requirements, stdout only, no TUI (ADR 0003).
 
 Text bars (non-TUI path used by tests and as a building block): ~20 character bar + percent.
 
-TUI (ADR 0003): states `loading | ready | failed`; spinner `fetching <user>…`; header `@user  repos=N  stars=S  cached|live`; language bars; repo list (truncated name, stars, primary language, `updated` YYYY-MM-DD); footer `q quit  r refresh`; `j/k` or arrows move selection; `r` reloads with `-fresh` semantics; `q`/Ctrl+C restore terminal, exit 0. Usable at 80×24; resize must not panic.
+TUI (ADR 0003, 0005): states `loading | ready | failed`; spinner `fetching <user>…`; header `@user  repos=N  stars=S  cached|live`; language bars (no HTML/CSS); blank line, rule, heading `Recently updated`; 5 repos or all if `-all` (truncated name, stars, primary language, UPDATED YYYY-MM-DD); footer `q quit  r refresh`; `j/k` or arrows move selection in that list; `r` reloads with `-fresh` semantics; `q`/Ctrl+C restore terminal, exit 0. Usable at 80×24; resize must not panic.
 
 ## Traceability
 

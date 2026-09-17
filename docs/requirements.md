@@ -32,8 +32,8 @@ Language data is **not** the repo's `primaryLanguage`. Bytes returned by each in
 In:
 
 - Header: user, number of repos counted, total stars of those repos.
-- Languages: top N by bytes + `Other` bucket. Bars + percentage.
-- Repo list: name, stars, primary language, update date.
+- Languages: top N by bytes + `Other` bucket. Bars + percentage. `HTML` and `CSS` are omitted from this mix (ADR 0006).
+- Repo list (default): 5 most recently updated (`updated_at` desc). `-all` lists every included repo in that order (ADR 0005).
 - Flags, on-disk cache, required `GITHUB_TOKEN` for live fetch, clear errors.
 - `--json` mode for scripts (no TUI).
 
@@ -56,6 +56,7 @@ Out:
 | `-json` | `false` | Print the result to stdout as JSON. Do not open the TUI. |
 | `-forks` | `false` | Include forks. Forks are excluded by default. |
 | `-fresh` | `false` | Ignore cache and refetch. |
+| `-all` | `false` | List every included repo (still `updated_at` desc). Default is 5. |
 | `-version` | — | Print `gitview 0.1.0` and exit 0. |
 
 Positional:
@@ -90,9 +91,11 @@ Inclusion rules:
 Aggregation:
 
 - `map[string]int64` bytes per language.
-- `TopN(n)`: N largest + `Other` with the remainder.
-- Percentage = `bytes_lang / bytes_total * 100`.
-- Repos sorted by stars desc, tie-break by name asc.
+- Drop `HTML` and `CSS` from the byte map before TopN (not folded into `Other`).
+- `TopN(n)`: N largest + `Other` with the remainder (of what is left).
+- Percentage = `bytes_lang / bytes_total * 100` over remaining languages.
+- Repos sorted by `updated_at` desc, tie-break by name asc.
+- Default display: first 5 of that list. `-all`: the full list. `repos_count` and stars are totals for all included repos.
 - Total stars = sum of `stargazers_count` of included repos.
 
 HTTP:
@@ -124,10 +127,11 @@ HTTP:
 - While loading: spinner `fetching <user>…`.
 - List view:
   - Line 1: `@user  repos=N  stars=S  cached|live`
-  - Languages block: fixed-width bar + percentage.
-  - Repos block: truncated name, stars, primary language, `updated` (`YYYY-MM-DD`).
+  - Languages block: fixed-width bar + percentage (no HTML/CSS).
+  - Blank line, a horizontal rule, heading `Recently updated`.
+  - Repos: 5 most recently updated, or all if `-all`. Truncated name, stars, primary language, `UPDATED` (`YYYY-MM-DD`).
   - Footer: `q quit  r refresh`.
-- `j/k` or arrows: move selection in the list. No detail panel.
+- `j/k` or arrows: move selection in that list. No detail panel.
 - `r`: refetch with `-fresh` semantics.
 - `q` / Ctrl+C: restore the terminal and exit 0.
 - Fetch error: shown in the TUI; the spinner must not hang.

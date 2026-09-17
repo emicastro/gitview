@@ -37,6 +37,7 @@ type config struct {
 	json         bool
 	includeForks bool
 	fresh        bool
+	all          bool
 	version      bool
 }
 
@@ -115,7 +116,9 @@ func runWith(ctx context.Context, args []string, d deps) int {
 			fmt.Fprintln(d.stderr, err)
 			return 1
 		}
-		if err := render.JSON(d.stdout, snap); err != nil {
+		out := snap
+		out.Repos = stats.Visible(snap.Repos, cfg.all)
+		if err := render.JSON(d.stdout, out); err != nil {
 			fmt.Fprintln(d.stderr, err)
 			return 1
 		}
@@ -128,7 +131,7 @@ func runWith(ctx context.Context, args []string, d deps) int {
 			c.fresh = true
 		}
 		return load(ctx, c, d)
-	})
+	}, cfg.all)
 	if d.startUI != nil {
 		return d.startUI(m)
 	}
@@ -208,6 +211,7 @@ func parseArgs(args []string, stderr io.Writer) (config, error) {
 	jsonOut := fs.Bool("json", false, "print JSON instead of TUI")
 	includeForks := fs.Bool("forks", false, "include forked repos")
 	fresh := fs.Bool("fresh", false, "ignore cache and refetch")
+	all := fs.Bool("all", false, "list all repos by last update")
 	showVersion := fs.Bool("version", false, "print version and exit")
 
 	if err := fs.Parse(args); err != nil {
@@ -219,6 +223,7 @@ func parseArgs(args []string, stderr io.Writer) (config, error) {
 		json:         *jsonOut,
 		includeForks: *includeForks,
 		fresh:        *fresh,
+		all:          *all,
 		version:      *showVersion,
 	}
 

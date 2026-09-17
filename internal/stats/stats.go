@@ -34,6 +34,10 @@ type Snapshot struct {
 	Skipped    int `json:"-"`
 }
 
+const DefaultRecent = 5
+
+var markupLangs = []string{"HTML", "CSS"}
+
 // Input is one included repo plus its language byte map.
 type Input struct {
 	Repo
@@ -47,16 +51,38 @@ func Build(user string, fetchedAt time.Time, cached bool, in []Input, top int) S
 		maps = append(maps, r.LangBytes)
 		repos = append(repos, r.Repo)
 	}
-	repos = SortRepos(repos)
+	repos = SortByUpdated(repos)
 	return Snapshot{
 		User:       user,
 		FetchedAt:  fetchedAt.UTC(),
 		Cached:     cached,
 		ReposCount: len(repos),
 		Stars:      TotalStars(repos),
-		Languages:  TopN(SumLanguages(maps), top),
+		Languages:  TopN(Exclude(SumLanguages(maps), markupLangs...), top),
 		Repos:      repos,
 	}
+}
+
+func Exclude(bytes map[string]int64, names ...string) map[string]int64 {
+	skip := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		skip[n] = struct{}{}
+	}
+	out := make(map[string]int64, len(bytes))
+	for k, v := range bytes {
+		if _, ok := skip[k]; ok {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+func Visible(repos []Repo, all bool) []Repo {
+	if all || len(repos) <= DefaultRecent {
+		return repos
+	}
+	return repos[:DefaultRecent]
 }
 
 func SumLanguages(maps []map[string]int64) map[string]int64 {
@@ -77,11 +103,11 @@ func TotalStars(repos []Repo) int {
 	return n
 }
 
-func SortRepos(repos []Repo) []Repo {
+func SortByUpdated(repos []Repo) []Repo {
 	out := append([]Repo(nil), repos...)
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].Stars != out[j].Stars {
-			return out[i].Stars > out[j].Stars
+		if out[i].UpdatedAt != out[j].UpdatedAt {
+			return out[i].UpdatedAt > out[j].UpdatedAt
 		}
 		return out[i].Name < out[j].Name
 	})

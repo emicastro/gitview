@@ -47,12 +47,16 @@ Flags go before `<user>`.
 | `-json` | off | Print JSON to stdout; do not open the TUI |
 | `-forks` | off | Include forked repos |
 | `-fresh` | off | Ignore cache and refetch |
+| `-all` | off | List every included repo (by last update). Default is 5. |
 | `-version` | | Print `gitview 0.1.0` and exit 0 |
 
 ```sh
 gitview -json golang
 gitview -top 5 octocat
+gitview -all emicastro
 ```
+
+Default view: language bars (HTML and CSS omitted), then **Recently updated** (five repos by GitHub `updated_at`). `-all` shows the full list in that order.
 
 TUI keys: `j`/`k` or arrows move, `r` refresh, `q` or Ctrl+C quit.
 

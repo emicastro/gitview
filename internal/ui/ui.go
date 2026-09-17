@@ -36,6 +36,7 @@ type Model struct {
 	height int
 	cursor int
 	offset int
+	all    bool
 }
 
 type resultMsg struct {
@@ -43,13 +44,14 @@ type resultMsg struct {
 	err  error
 }
 
-func New(user string, load LoadFunc) Model {
+func New(user string, load LoadFunc, all bool) Model {
 	return Model{
 		user:   user,
 		load:   load,
 		state:  stateLoading,
 		width:  defaultWidth,
 		height: defaultHeight,
+		all:    all,
 	}
 }
 
@@ -110,8 +112,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m Model) listed() []stats.Repo {
+	return stats.Visible(m.snap.Repos, m.all)
+}
+
 func (m *Model) move(delta int) {
-	n := len(m.snap.Repos)
+	n := len(m.listed())
 	if n == 0 {
 		m.cursor = 0
 		m.offset = 0
@@ -128,7 +134,7 @@ func (m *Model) move(delta int) {
 }
 
 func (m *Model) clampScroll() {
-	n := len(m.snap.Repos)
+	n := len(m.listed())
 	vis := m.repoRows()
 	if vis < 1 {
 		vis = 1
@@ -156,8 +162,8 @@ func (m Model) repoRows() int {
 	if h < 1 {
 		h = defaultHeight
 	}
-	// header + languages + skipped note + column titles + footer
-	used := 1 + len(m.snap.Languages) + 1 + 1
+	// header + languages + skipped + blank + rule + title + columns + footer
+	used := 1 + len(m.snap.Languages) + 1 + 1 + 1 + 1 + 1
 	if m.snap.Skipped > 0 {
 		used++
 	}
@@ -208,6 +214,17 @@ func (m Model) writeReady(b *strings.Builder, w int) {
 		fmt.Fprintf(b, "%s\n", colStyle.Render(trunc(note, w)))
 	}
 
+	fmt.Fprintln(b)
+	ruleW := w
+	if ruleW > 40 {
+		ruleW = 40
+	}
+	if ruleW < 8 {
+		ruleW = 8
+	}
+	fmt.Fprintf(b, "%s\n", colStyle.Render(strings.Repeat("─", ruleW)))
+	fmt.Fprintf(b, "%s\n", headerStyle.Render(trunc("Recently updated", w)))
+
 	nameW := w - 2 - 1 - 5 - 1 - 8 - 1 - 10
 	if nameW < 4 {
 		nameW = 4
@@ -217,7 +234,7 @@ func (m Model) writeReady(b *strings.Builder, w int) {
 		w,
 	)))
 
-	repos := m.snap.Repos
+	repos := stats.Visible(m.snap.Repos, m.all)
 	vis := m.repoRows()
 	end := m.offset + vis
 	if end > len(repos) {

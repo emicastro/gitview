@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -33,8 +34,8 @@ func TestParseArgs(t *testing.T) {
 	}{
 		{
 			name: "happy",
-			args: []string{"-top", "3", "-json", "-forks", "-fresh", "octocat"},
-			want: config{user: "octocat", top: 3, json: true, includeForks: true, fresh: true},
+			args: []string{"-top", "3", "-json", "-forks", "-fresh", "-all", "octocat"},
+			want: config{user: "octocat", top: 3, json: true, includeForks: true, fresh: true, all: true},
 		},
 		{
 			name: "defaults",
@@ -236,6 +237,75 @@ func TestRunJSON(t *testing.T) {
 	}
 	if got["fetched_at"] != "2026-09-17T15:00:00Z" {
 		t.Fatalf("fetched_at = %v", got["fetched_at"])
+	}
+}
+
+func TestRunJSONVisibleFive(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/user" {
+			_ = json.NewEncoder(w).Encode(map[string]string{"login": "other"})
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, "/languages") {
+			_ = json.NewEncoder(w).Encode(map[string]int64{"Go": 100, "HTML": 50, "CSS": 10})
+			return
+		}
+		var list []map[string]any
+		for i := 0; i < 6; i++ {
+			list = append(list, map[string]any{
+				"name":             fmt.Sprintf("r%d", i),
+				"fork":             false,
+				"stargazers_count": i,
+				"language":         "Go",
+				"updated_at":       fmt.Sprintf("2026-01-%02dT00:00:00Z", i+1),
+				"owner":            map[string]string{"login": "octocat"},
+			})
+		}
+		_ = json.NewEncoder(w).Encode(list)
+	}))
+	t.Cleanup(srv.Close)
+
+	d := deps{
+		getenv:  func(string) string { return dummyToken },
+		baseURL: srv.URL,
+		http:    srv.Client(),
+		now:     func() time.Time { return time.Date(2026, 9, 17, 15, 0, 0, 0, time.UTC) },
+	}
+	var stdout, stderr bytes.Buffer
+	d.stdout, d.stderr = &stdout, &stderr
+	if code := runWith(context.Background(), []string{"-json", "octocat"}, d); code != 0 {
+		t.Fatalf("exit %d %q", code, stderr.String())
+	}
+	var got struct {
+		ReposCount int              `json:"repos_count"`
+		Languages  []map[string]any `json:"languages"`
+		Repos      []map[string]any `json:"repos"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.ReposCount != 6 || len(got.Repos) != 5 {
+		t.Fatalf("count=%d listed=%d", got.ReposCount, len(got.Repos))
+	}
+	for _, l := range got.Languages {
+		if l["name"] == "HTML" || l["name"] == "CSS" {
+			t.Fatalf("markup in languages: %#v", got.Languages)
+		}
+	}
+	stdout.Reset()
+	stderr.Reset()
+	d.stdout, d.stderr = &stdout, &stderr
+	if code := runWith(context.Background(), []string{"-json", "-all", "octocat"}, d); code != 0 {
+		t.Fatalf("-all exit %d %q", code, stderr.String())
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Repos) != 6 {
+		t.Fatalf("-all listed=%d", len(got.Repos))
 	}
 }
 
