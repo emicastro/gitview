@@ -20,7 +20,7 @@ Each task is one Implement session and ends in a runnable check.
 
 ## Group 3 — Domain (Slice 1 stats)
 
-- [ ] **3.1** `internal/stats`: aggregate bytes, `TopN`, repo sort, percent. Fixture tests including empty, all-in-Other, ties.
+- [x] **3.1** `internal/stats`: aggregate bytes, `TopN`, repo sort, percent. Fixture tests including empty, all-in-Other, ties.
       Check: `go test -race -count=1 ./internal/stats`
 
 ## Group 4 — GitHub client (Slice 1 fetch, no TUI)
