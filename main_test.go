@@ -16,6 +16,7 @@ import (
 
 	"emicastro.com/gitview/internal/cache"
 	"emicastro.com/gitview/internal/stats"
+	"emicastro.com/gitview/internal/ui"
 )
 
 const dummyToken = "test-github-token"
@@ -207,6 +208,10 @@ func TestRunJSON(t *testing.T) {
 		baseURL: srv.URL,
 		http:    srv.Client(),
 		now:     func() time.Time { return time.Date(2026, 9, 17, 15, 0, 0, 0, time.UTC) },
+		startUI: func(ui.Model) int {
+			t.Error("TUI started on -json")
+			return 1
+		},
 	})
 	if code != 0 {
 		t.Fatalf("exit %d stderr=%q", code, stderr.String())

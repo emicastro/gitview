@@ -40,7 +40,7 @@ Each task is one Implement session and ends in a runnable check.
 
 ## Group 7 — TUI (Slices 3–4)
 
-- [ ] **7.1** Bubble Tea model: `loading | ready | failed`, spinner `fetching <user>…`, `q` / Ctrl+C restore terminal exit 0, `r` refetch as `-fresh`. `-json` does not start tea.
+- [x] **7.1** Bubble Tea model: `loading | ready | failed`, spinner `fetching <user>…`, `q` / Ctrl+C restore terminal exit 0, `r` refetch as `-fresh`. `-json` does not start tea.
       Check: `go test -race -count=1 ./internal/ui`
 - [ ] **7.2** Repo list: truncated name, stars, language, `updated`, `j/k`/arrows, viewport; no extra fetch on select; layout does not panic at 80×24 (fixed-size `tea.WindowSizeMsg` test).
       Check: `go test -race -count=1 ./internal/ui`

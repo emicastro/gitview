@@ -9,15 +9,17 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
-	"path/filepath"
+	tea "github.com/charmbracelet/bubbletea"
 
 	"emicastro.com/gitview/internal/cache"
 	"emicastro.com/gitview/internal/github"
 	"emicastro.com/gitview/internal/render"
 	"emicastro.com/gitview/internal/stats"
+	"emicastro.com/gitview/internal/ui"
 )
 
 var errTokenRequired = errors.New("GITHUB_TOKEN required")
@@ -44,6 +46,7 @@ type deps struct {
 	http     *http.Client
 	now      func() time.Time
 	cacheDir string
+	startUI  func(ui.Model) int
 }
 
 func main() {
@@ -100,24 +103,44 @@ func runWith(ctx context.Context, args []string, d deps) int {
 		return 0
 	}
 
-	snap, err := load(ctx, cfg, d)
-	if err != nil {
-		if errors.Is(err, errTokenRequired) {
-			fmt.Fprintln(d.stderr, errTokenRequired)
-			return 2
-		}
-		fmt.Fprintln(d.stderr, err)
-		return 1
-	}
-
 	if cfg.json {
+		snap, err := load(ctx, cfg, d)
+		if err != nil {
+			if errors.Is(err, errTokenRequired) {
+				fmt.Fprintln(d.stderr, errTokenRequired)
+				return 2
+			}
+			fmt.Fprintln(d.stderr, err)
+			return 1
+		}
 		if err := render.JSON(d.stdout, snap); err != nil {
 			fmt.Fprintln(d.stderr, err)
 			return 1
 		}
 		return 0
 	}
-	if err := render.Text(d.stdout, snap); err != nil {
+
+	m := ui.New(cfg.user, func(fresh bool) (stats.Snapshot, error) {
+		c := cfg
+		if fresh {
+			c.fresh = true
+		}
+		return load(ctx, c, d)
+	})
+	if d.startUI != nil {
+		return d.startUI(m)
+	}
+	if d.getenv("GITHUB_TOKEN") == "" {
+		if _, err := load(ctx, cfg, d); errors.Is(err, errTokenRequired) {
+			fmt.Fprintln(d.stderr, errTokenRequired)
+			return 2
+		} else if err != nil {
+			fmt.Fprintln(d.stderr, err)
+			return 1
+		}
+	}
+	p := tea.NewProgram(m, tea.WithContext(ctx))
+	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(d.stderr, err)
 		return 1
 	}
