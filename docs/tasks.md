@@ -30,7 +30,7 @@ Each task is one Implement session and ends in a runnable check.
 
 ## Group 5 — Load + JSON/text (Slice 1)
 
-- [ ] **5.1** Orchestrate fetch→stats→`internal/render` JSON (schema in requirements) and text bars (~20 chars). `-json` writes JSON only to stdout. Wire `run` so `gitview -json <user>` works against a test server (inject base URL in tests).
+- [x] **5.1** Orchestrate fetch→stats→`internal/render` JSON (schema in requirements) and text bars (~20 chars). `-json` writes JSON only to stdout. Wire `run` so `gitview -json <user>` works against a test server (inject base URL in tests).
       Check: `go test -race -count=1 ./internal/render ./...`
 
 ## Group 6 — Cache + rate-limit messages (Slice 2)

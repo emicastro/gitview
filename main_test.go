@@ -3,11 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 const dummyToken = "test-github-token"
@@ -126,14 +130,6 @@ func TestRun(t *testing.T) {
 			wantCode:   2,
 			wantStderr: "GITHUB_TOKEN required\n",
 		},
-		{
-			name:       "dummy token not leaked",
-			args:       []string{"octocat"},
-			token:      dummyToken,
-			wantCode:   0,
-			wantStdout: "user:octocat top:8 json:false forks:false fresh:false\n",
-			forbid:     dummyToken,
-		},
 	}
 
 	for _, tt := range tests {
@@ -165,5 +161,67 @@ func TestRun(t *testing.T) {
 				t.Fatalf("token leaked in output %q", out)
 			}
 		})
+	}
+}
+
+func TestRunJSON(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+dummyToken {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/languages") {
+			_ = json.NewEncoder(w).Encode(map[string]int64{"Go": 12000, "C": 1000})
+			return
+		}
+		_ = json.NewEncoder(w).Encode([]map[string]any{
+			{
+				"name":             "hello",
+				"fork":             false,
+				"stargazers_count": 10,
+				"language":         "Go",
+				"updated_at":       "2026-01-02T00:00:00Z",
+				"owner":            map[string]string{"login": "octocat"},
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	var stdout, stderr bytes.Buffer
+	code := runWith(context.Background(), []string{"-json", "octocat"}, deps{
+		getenv: func(key string) string {
+			if key == "GITHUB_TOKEN" {
+				return dummyToken
+			}
+			return ""
+		},
+		stdout:  &stdout,
+		stderr:  &stderr,
+		baseURL: srv.URL,
+		http:    srv.Client(),
+		now:     func() time.Time { return time.Date(2026, 9, 17, 15, 0, 0, 0, time.UTC) },
+	})
+	if code != 0 {
+		t.Fatalf("exit %d stderr=%q", code, stderr.String())
+	}
+	out := stdout.String()
+	if strings.Contains(out, dummyToken) || strings.Contains(stderr.String(), dummyToken) {
+		t.Fatalf("token leaked")
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["user"] != "octocat" || got["cached"] != false {
+		t.Fatalf("got %#v", got)
+	}
+	if got["fetched_at"] != "2026-09-17T15:00:00Z" {
+		t.Fatalf("fetched_at = %v", got["fetched_at"])
 	}
 }
