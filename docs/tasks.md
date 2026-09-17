@@ -25,7 +25,7 @@ Each task is one Implement session and ends in a runnable check.
 
 ## Group 4 — GitHub client (Slice 1 fetch, no TUI)
 
-- [ ] **4.1** `internal/github` against `httptest`: list+paginate, languages pool of 4, 404 / 401 / 403+reset, per-repo languages skip, `User-Agent: gitview/0.1`, `Authorization` header present and **not** logged. Token passed in, never stored on a shared struct that gets printed.
+- [x] **4.1** `internal/github` against `httptest`: list+paginate, languages pool of 4, 404 / 401 / 403+reset, per-repo languages skip, `User-Agent: gitview/0.1`, `Authorization` header present and **not** logged. Token passed in, never stored on a shared struct that gets printed.
       Check: `go test -race -count=1 ./internal/github`
 
 ## Group 5 — Load + JSON/text (Slice 1)
