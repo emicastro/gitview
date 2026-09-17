@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"emicastro.com/gitview/internal/stats"
 )
@@ -100,11 +101,28 @@ func TestRefreshAndFailed(t *testing.T) {
 	if !strings.Contains(m.View(), "@octocat") {
 		t.Fatalf("ready view = %q", m.View())
 	}
-	if !strings.Contains(m.View(), "Recently updated") {
-		t.Fatalf("missing heading: %q", m.View())
+	if !strings.Contains(stripANSI(m.View()), "tab expand") {
+		t.Fatalf("missing help line: %q", m.View())
 	}
-	if !strings.Contains(m.View(), "q quit  r refresh") {
-		t.Fatalf("missing footer: %q", m.View())
+	for _, want := range []string{"r refresh", "q quit"} {
+		if !strings.Contains(stripANSI(m.View()), want) {
+			t.Fatalf("help line missing %q: %q", want, m.View())
+		}
+	}
+	if strings.Contains(m.View(), "Recently updated") {
+		t.Fatalf("repo list should be behind tab: %q", m.View())
+	}
+
+	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = next.(Model)
+	if cmd != nil {
+		t.Fatal("tab must not fetch")
+	}
+	if !strings.Contains(m.View(), "Recently updated") {
+		t.Fatalf("missing heading after tab: %q", m.View())
+	}
+	if !strings.Contains(stripANSI(m.View()), "tab collapse") {
+		t.Fatalf("help line did not follow the view: %q", m.View())
 	}
 }
 
@@ -138,8 +156,12 @@ func TestLanguageRowsLeftAligned(t *testing.T) {
 			continue
 		}
 		js++
-		if strings.Index(line, "JavaScript") > 2 {
-			t.Fatalf("JavaScript not left-aligned: %q", line)
+		// The panel's left border plus its 2 cells of padding put the first
+		// content column at display column 3. Measure cells, not bytes: the
+		// border glyph is three bytes wide and one cell wide.
+		col := lipgloss.Width(line[:strings.Index(line, "JavaScript")])
+		if col != panelPadding+1 {
+			t.Fatalf("JavaScript at column %d, want the panel inset: %q", col, line)
 		}
 	}
 	if js != 1 {
@@ -170,6 +192,26 @@ func TestListNavigationAndLayout(t *testing.T) {
 	next, cmd := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	if cmd != nil {
 		t.Fatal("resize must not fetch")
+	}
+	m = next.(Model)
+
+	// j/k are inert while the repo list is collapsed.
+	for _, key := range []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")},
+		tea.KeyMsg{Type: tea.KeyDown},
+	} {
+		next, cmd = m.Update(key)
+		if cmd != nil {
+			t.Fatalf("collapsed %T started a fetch", key)
+		}
+		if next.(Model).cursor != 0 {
+			t.Fatalf("collapsed %T moved the cursor", key)
+		}
+	}
+
+	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	if cmd != nil {
+		t.Fatal("tab must not fetch")
 	}
 	m = next.(Model)
 

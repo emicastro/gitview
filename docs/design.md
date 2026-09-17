@@ -4,7 +4,7 @@ Status: accepted
 Date: 2026-09-17
 Source of truth for requirements: `docs/requirements.md`.
 
-Cites `docs/adr/0001-github-token-required.md`, `docs/adr/0002-stdlib-http.md`, `docs/adr/0003-bubbletea-tui.md`, `docs/adr/0004-authenticated-private-repos.md`, `docs/adr/0005-recent-repos-default.md`, `docs/adr/0006-exclude-html-css.md`.
+Cites `docs/adr/0001-github-token-required.md`, `docs/adr/0002-stdlib-http.md`, `docs/adr/0003-bubbletea-tui.md`, `docs/adr/0004-authenticated-private-repos.md`, `docs/adr/0005-recent-repos-default.md`, `docs/adr/0006-exclude-html-css.md`, `docs/adr/0007-compact-strip-tui.md`.
 
 ## Process
 
@@ -27,7 +27,12 @@ gitview/
   internal/stats/         # aggregate, TopN, sort
   internal/cache/         # disk snapshot, TTL 1h
   internal/render/        # JSON + text bars
-  internal/ui/            # Bubble Tea  (ADR 0003)
+  internal/ui/            # Bubble Tea  (ADR 0003, ADR 0007)
+      ui.go               # tea.Model, Init, Update, scrolling
+      view.go             # View, layout selection by width and height
+      bars.go             # bar(), ribbon() -- geometry, no styling decisions
+      theme.go            # palette, language accents, styles (AGENTS.md)
+      keys.go             # key map + help line
 ```
 
 `internal/stats` imports neither HTTP nor TUI.
@@ -58,7 +63,15 @@ JSON: exact schema in requirements, stdout only, no TUI (ADR 0003).
 
 Text bars (non-TUI path used by tests and as a building block): ~20 character bar + percent.
 
-TUI (ADR 0003, 0005): states `loading | ready | failed`; spinner `fetching <user>…`; header `@user  repos=N  stars=S  cached|live`; language bars (no HTML/CSS); blank line, rule, heading `Recently updated`; 5 repos or all if `-all` (truncated name, stars, primary language, UPDATED YYYY-MM-DD); footer `q quit  r refresh`; `j/k` or arrows move selection in that list; `r` reloads with `-fresh` semantics; `q`/Ctrl+C restore terminal, exit 0. Usable at 80×24; resize must not panic.
+TUI (ADR 0003, 0005, 0007): states `loading | ready | failed`; spinner `fetching <user>…`.
+
+Compact view (default) is one bordered panel, width `min(terminal, 85)`, left-aligned, 2 cells of horizontal padding: header row (`gitview · @user` left, `N repos · S stars · N langs · cached|live` right), rule, full-width ribbon segmented by share, blank row, mini-bar grid (`name 11 | track 20 | gutter 2 | pct 6`, columns separated by 3), then the skipped-repos note if any. Help line renders below the panel.
+
+Expanded view (`tab`) appends a second panel: heading `Recently updated`, columns NAME / STARS / LANG / UPDATED, `> ` cursor, em dash for zero stars, 5 repos or all if `-all`. `j/k` and arrows move selection there and are inert while collapsed; no fetch on select.
+
+Width breakpoints, recomputed on every `tea.WindowSizeMsg`: `>= 85` two-column grid; `60..84` single column with the track shrunk to fit, floor 10; `< 60` ribbon plus a name-and-percentage list, no bars; `< 8` rows ribbon and help line only. `r` reloads with `-fresh` semantics; `q`/Ctrl+C restore terminal, exit 0. Usable at 80×24; resize must not panic.
+
+All colors are Catppuccin `lipgloss.AdaptiveColor` (Mocha dark, Latte light) and live in `theme.go`; `bars.go` takes the two styles it paints with and makes no styling decisions of its own. Rows that carry ANSI are measured with `lipgloss.Width`, never `len`.
 
 ## Traceability
 

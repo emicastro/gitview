@@ -125,13 +125,15 @@ HTTP:
 `-json` off:
 
 - While loading: spinner `fetching <user>…`.
-- List view:
-  - Line 1: `@user  repos=N  stars=S  cached|live`
-  - Languages block: fixed-width bar + percentage (no HTML/CSS).
-  - Blank line, a horizontal rule, heading `Recently updated`.
-  - Repos: 5 most recently updated, or all if `-all`. Truncated name, stars, primary language, `UPDATED` (`YYYY-MM-DD`).
-  - Footer: `q quit  r refresh`.
-- `j/k` or arrows: move selection in that list. No detail panel.
+- Compact view (default), one bordered panel at most 85 columns wide, left-aligned (ADR 0007):
+  - Header row: `gitview · @user` on the left, `N repos · S stars · N langs · cached|live` on the right.
+  - A horizontal rule.
+  - Ribbon: one full-panel-width row segmented by language share.
+  - Mini-bar grid: `name │ bar │ percent` per language (no HTML/CSS), two columns at >= 85 cols, one below that, percentages only below 60 cols.
+  - Help line below the panel: `tab expand   r refresh   q quit`.
+- Expanded view (`tab`): the compact panel, then a second panel with heading `Recently updated` and 5 most recently updated repos, or all if `-all`. Truncated name, stars, primary language, `UPDATED` (`YYYY-MM-DD`).
+- `j/k` or arrows: move selection in the expanded list. No detail panel. Inert while collapsed.
+- `tab`: expand or collapse the repo list.
 - `r`: refetch with `-fresh` semantics.
 - `q` / Ctrl+C: restore the terminal and exit 0.
 - Fetch error: shown in the TUI; the spinner must not hang.

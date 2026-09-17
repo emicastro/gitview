@@ -56,9 +56,32 @@ gitview -top 5 octocat
 gitview -all emicastro
 ```
 
-Default view: language bars (HTML and CSS omitted), then **Recently updated** (five repos by GitHub `updated_at`). `-all` shows the full list in that order.
+Default view is one compact panel: a header line, a full-width ribbon segmented
+by language share, and a grid of `name | bar | percent` rows (HTML and CSS
+omitted). It is two columns at 85 columns or wider, one column below that, and
+percentages only under 60 columns. The panel never grows past 85 columns, so the
+bars stay comparable between runs.
 
-TUI keys: `j`/`k` or arrows move, `r` refresh, `q` or Ctrl+C quit.
+```text
+╭─────────────────────────────────────────────────────────────────────────────╮
+│  gitview  ·  @emicastro            87 repos · 0 stars · 9 langs · cached     │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  █████████████████████████████████████████████████████████████████████████   │
+│                                                                             │
+│  JavaScript ███████▎░░░░░░░░░░░  38.0   Go         ███▋░░░░░░░░░░░░░░  18.8  │
+│  Rust       ██▍░░░░░░░░░░░░░░░░  12.4   Lua        ██░░░░░░░░░░░░░░░░  10.4  │
+│  other      █▎░░░░░░░░░░░░░░░░░   6.4                                        │
+╰─────────────────────────────────────────────────────────────────────────────╯
+  tab expand   r refresh   q quit
+```
+
+Press `tab` for **Recently updated** — five repos by GitHub `updated_at` in a
+second panel, or the full list with `-all`.
+
+TUI keys: `tab` expand or collapse the repo list, `j`/`k` or arrows move the
+selection in it, `r` refresh, `q` or Ctrl+C quit.
+
+Colors are Catppuccin: Mocha on a dark terminal, Latte on a light one.
 
 ## Cache and limits
 

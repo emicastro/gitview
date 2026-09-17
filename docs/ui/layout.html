@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>langstat — compact strip layout</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    margin: 0;
+    background: #11111b;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #cdd6f4;
+  }
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+</style>
+</head>
+<body>
+
+<div style="width: 880px; height: 420px; box-sizing: border-box; background: #11111b; padding: 28px; display: flex; flex-direction: column;">
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; background: #1e1e2e; border: 1px solid #313244; border-radius: 8px; overflow: hidden;">
+
+    <div style="height: 34px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #181825; border-bottom: 1px solid #313244;">
+      <span style="width: 10px; height: 10px; border-radius: 50%; background: #f38ba8;"></span>
+      <span style="width: 10px; height: 10px; border-radius: 50%; background: #f9e2af;"></span>
+      <span style="width: 10px; height: 10px; border-radius: 50%; background: #a6e3a1;"></span>
+      <span style="margin-left: 10px; font-size: 12px; color: #9399b2; letter-spacing: 0.04em;">langstat</span>
+    </div>
+
+    <div style="flex-grow: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
+
+      <div style="border: 1px solid #585b70; border-radius: 4px; padding: 14px 18px; display: flex; flex-direction: column;">
+
+        <div style="display: flex; align-items: baseline; justify-content: space-between; font-size: 15px; line-height: 26px;">
+          <span><span style="color: #cba6f7; font-weight: 700;">langstat</span><span style="color: #45475a;">&nbsp;&nbsp;&middot;&nbsp;&nbsp;</span><span style="color: #a6adc8;">@[your-handle]</span></span>
+          <span style="color: #9399b2;">[N] repos &middot; [N] languages</span>
+        </div>
+
+        <div style="height: 1px; background: #313244; margin: 8px 0 16px 0;"></div>
+
+        <div style="display: flex; height: 26px; width: 100%;">
+          <div style="width: 34%; background: #fab387;"></div>
+          <div style="width: 20%; background: #89dceb;"></div>
+          <div style="width: 10%; background: #f9e2af;"></div>
+          <div style="width: 10%; background: #b4befe;"></div>
+          <div style="width: 26%; background: #6c7086;"></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 18px;">
+
+          <div style="display: flex; align-items: baseline; font-size: 15px; line-height: 28px;">
+            <span style="width: 100px; color: #cdd6f4;">Rust</span>
+            <span style="width: 180px; white-space: pre;"><span style="color: #fab387;">██████▎</span><span style="color: #45475a;">░░░░░░░░░░░░░</span></span>
+            <span style="width: 12px;"></span>
+            <span style="width: 60px; text-align: right; color: #a6adc8;">34.0</span>
+          </div>
+
+          <div style="display: flex; align-items: baseline; font-size: 15px; line-height: 28px;">
+            <span style="width: 100px; color: #cdd6f4;">JavaScript</span>
+            <span style="width: 180px; white-space: pre;"><span style="color: #f9e2af;">██</span><span style="color: #45475a;">░░░░░░░░░░░░░░░░░░</span></span>
+            <span style="width: 12px;"></span>
+            <span style="width: 60px; text-align: right; color: #a6adc8;">10.0</span>
+          </div>
+
+          <div style="display: flex; align-items: baseline; font-size: 15px; line-height: 28px;">
+            <span style="width: 100px; color: #cdd6f4;">Go</span>
+            <span style="width: 180px; white-space: pre;"><span style="color: #89dceb;">████</span><span style="color: #45475a;">░░░░░░░░░░░░░░░░</span></span>
+            <span style="width: 12px;"></span>
+            <span style="width: 60px; text-align: right; color: #a6adc8;">20.0</span>
+          </div>
+
+          <div style="display: flex; align-items: baseline; font-size: 15px; line-height: 28px;">
+            <span style="width: 100px; color: #cdd6f4;">C</span>
+            <span style="width: 180px; white-space: pre;"><span style="color: #b4befe;">██</span><span style="color: #45475a;">░░░░░░░░░░░░░░░░░░</span></span>
+            <span style="width: 12px;"></span>
+            <span style="width: 60px; text-align: right; color: #a6adc8;">10.0</span>
+          </div>
+
+          <div style="display: flex; align-items: baseline; font-size: 15px; line-height: 28px;">
+            <span style="width: 100px; color: #9399b2;">other</span>
+            <span style="width: 180px; white-space: pre;"><span style="color: #6c7086;">█████▎</span><span style="color: #45475a;">░░░░░░░░░░░░░░</span></span>
+            <span style="width: 12px;"></span>
+            <span style="width: 60px; text-align: right; color: #9399b2;">26.0</span>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div style="display: flex; align-items: baseline; gap: 22px; font-size: 13px; line-height: 24px; color: #7f849c; padding: 0 4px;">
+        <span><span style="color: #b4befe;">tab</span> expand</span>
+        <span><span style="color: #b4befe;">p</span> period <span style="color: #a6adc8;">12 months</span></span>
+        <span><span style="color: #b4befe;">r</span> refresh</span>
+        <span><span style="color: #b4befe;">q</span> quit</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

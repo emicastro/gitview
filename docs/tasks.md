@@ -67,3 +67,16 @@ Each task is one Implement session and ends in a runnable check.
       Check: `go test -race -count=1 -run 'TestParseArgs|TestRunJSON' .`
 - [x] **10.4** TUI: bars, blank line, rule, heading `Recently updated`, then 5 rows (or all if `-all`). Same columns. Viewport/`j`/`k` on that list only. 80×24 test still passes.
       Check: `go test -race -count=1 ./internal/ui`
+
+## Group 11 — Compact strip TUI
+
+- [x] **11.1** ADR 0007 (compact strip panel, `tab`-expanded repo list, colors behind `theme.go`, no `bubbles` dependency, no `p` period key). Patch `docs/requirements.md` Text/TUI, `docs/design.md` Render + package tree + Cites.
+      Check: `test -f docs/adr/0007-compact-strip-tui.md && rg -n 'tab expand' docs/requirements.md`
+- [x] **11.2** `internal/ui/theme.go`: Catppuccin Mocha/Latte `AdaptiveColor` palette, language accent map with a stable fallback for unmapped names, derived styles. Remove the linguist hexes and the style block from `ui.go`.
+      Check: `go build ./... && ! rg -n '#[0-9a-f]{6}' internal/ui --glob '!theme.go'`
+- [x] **11.3** `internal/ui/bars.go`: `bar()` with eighth-block glyphs (partial glyph in the fill style) and `ribbon()` summing to exactly the panel width, remainder to the largest segment. Tests assert `lipgloss.Width` equals the requested cells for awkward percentages.
+      Check: `go test -race -count=1 -run 'TestBar|TestRibbon' ./internal/ui`
+- [x] **11.4** `internal/ui/keys.go` + `view.go`: bordered panel, header, rule, ribbon, grid, hand-rendered help line; width breakpoints 85 / 60 / below, and the `< 8` rows fallback. Existing layout assertions move with the layout.
+      Check: `go test -race -count=1 ./internal/ui`
+- [x] **11.5** `tab` expand/collapse: repo list in its own panel, `j`/`k` inert while collapsed and starting no fetch. Still usable at 80×24; no line wider than the terminal at 120 / 80 / 70 / 50 columns.
+      Check: `gofmt -l . | grep . && exit 1; go vet ./...; go test -race ./...`

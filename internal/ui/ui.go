@@ -27,16 +27,17 @@ const (
 type LoadFunc func(fresh bool) (stats.Snapshot, error)
 
 type Model struct {
-	user   string
-	load   LoadFunc
-	state  state
-	snap   stats.Snapshot
-	err    error
-	width  int
-	height int
-	cursor int
-	offset int
-	all    bool
+	user     string
+	load     LoadFunc
+	state    state
+	snap     stats.Snapshot
+	err      error
+	width    int
+	height   int
+	cursor   int
+	offset   int
+	all      bool
+	expanded bool
 }
 
 type resultMsg struct {
@@ -83,14 +84,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = stateLoading
 			m.err = nil
 			return m, m.fetchCmd(true)
+		case "tab":
+			m.expanded = !m.expanded
+			m.clampScroll()
+			return m, nil
 		case "j", "down":
-			if m.state != stateReady {
+			if m.state != stateReady || !m.expanded {
 				return m, nil
 			}
 			m.move(1)
 			return m, nil
 		case "k", "up":
-			if m.state != stateReady {
+			if m.state != stateReady || !m.expanded {
 				return m, nil
 			}
 			m.move(-1)
@@ -158,108 +163,48 @@ func (m *Model) clampScroll() {
 }
 
 func (m Model) repoRows() int {
-	h := m.height
-	if h < 1 {
-		h = defaultHeight
+	if !m.expanded {
+		return 0
 	}
-	// header + languages + skipped + blank + rule + title + columns + footer
-	used := 1 + len(m.snap.Languages) + 1 + 1 + 1 + 1 + 1
-	if m.snap.Skipped > 0 {
-		used++
+	// Everything the repo panel's rows have to share the screen with: this
+	// panel's own border/heading/columns, the help line, and the compact
+	// panel when there is room for both.
+	used := repoChrome + 1
+	if m.showCompact() {
+		used += m.compactHeight()
 	}
-	rows := h - used
+	rows := m.termHeight() - used
 	if rows < 1 {
 		return 1
 	}
 	return rows
 }
 
-func (m Model) View() string {
-	w := m.width
-	if w < 1 {
-		w = defaultWidth
+// showCompact reports whether the language panel fits alongside the repo list.
+// On a short terminal the list the user just asked for wins the space.
+func (m Model) showCompact() bool {
+	if !m.expanded {
+		return true
 	}
-	var b strings.Builder
-	switch m.state {
-	case stateLoading:
-		fmt.Fprintf(&b, "fetching %s…", m.user)
-	case stateFailed:
-		err := "load failed"
-		if m.err != nil {
-			err = m.err.Error()
-		}
-		fmt.Fprintf(&b, "error: %s", trunc(err, w))
-	default:
-		m.writeReady(&b, w)
-	}
-	fmt.Fprintf(&b, "\n%s", footerStyle.Render("q quit  r refresh"))
-	return b.String()
+	// The repo panel needs its chrome plus at least one row, and the help
+	// line needs the last one.
+	return m.termHeight() >= m.compactHeight()+repoChrome+1+1
 }
 
-func (m Model) writeReady(b *strings.Builder, w int) {
-	src := "live"
-	if m.snap.Cached {
-		src = "cached"
+// compactHeight is the rendered line count of the compact panel: border,
+// header, rule, ribbon, blank, one row per grid row, plus the skip note.
+func (m Model) compactHeight() int {
+	n := len(m.snap.Languages)
+	if n == 0 {
+		n = 1
+	} else if m.termWidth() >= twoColMin {
+		n = (n + 1) / 2
 	}
-	head := fmt.Sprintf("@%s   %d repos   %d stars   %s", m.snap.User, m.snap.ReposCount, m.snap.Stars, src)
-	fmt.Fprintf(b, "%s\n", headerStyle.Render(trunc(head, w)))
-	for _, l := range m.snap.Languages {
-		name := lipgloss.NewStyle().Width(12).MaxWidth(12).Foreground(langColor(l.Name)).Render(trunc(l.Name, 12))
-		pct := lipgloss.NewStyle().Width(7).Align(lipgloss.Right).Faint(true).Render(fmt.Sprintf("%.1f%%", l.Percent))
-		row := lipgloss.JoinHorizontal(lipgloss.Center, name, " ", colorBar(l.Percent, l.Name), " ", pct)
-		fmt.Fprintf(b, "%s\n", row)
-	}
+	h := 2 + 4 + n
 	if m.snap.Skipped > 0 {
-		note := fmt.Sprintf("%d repos omitted (no language data)", m.snap.Skipped)
-		fmt.Fprintf(b, "%s\n", colStyle.Render(trunc(note, w)))
+		h += 2
 	}
-
-	fmt.Fprintln(b)
-	ruleW := w
-	if ruleW > 40 {
-		ruleW = 40
-	}
-	if ruleW < 8 {
-		ruleW = 8
-	}
-	fmt.Fprintf(b, "%s\n", colStyle.Render(strings.Repeat("─", ruleW)))
-	fmt.Fprintf(b, "%s\n", headerStyle.Render(trunc("Recently updated", w)))
-
-	nameW := w - 2 - 1 - 5 - 1 - 8 - 1 - 10
-	if nameW < 4 {
-		nameW = 4
-	}
-	fmt.Fprintf(b, "%s\n", colStyle.Render(trunc(
-		fmt.Sprintf("  %s %5s %-8s %s", pad("NAME", nameW), "STARS", "LANG", "UPDATED"),
-		w,
-	)))
-
-	repos := stats.Visible(m.snap.Repos, m.all)
-	vis := m.repoRows()
-	end := m.offset + vis
-	if end > len(repos) {
-		end = len(repos)
-	}
-	if m.offset > len(repos) {
-		return
-	}
-	for i := m.offset; i < end; i++ {
-		r := repos[i]
-		mark := "  "
-		if i == m.cursor {
-			mark = "> "
-		}
-		stars := "    —"
-		if r.Stars > 0 {
-			stars = fmt.Sprintf("%5d", r.Stars)
-		}
-		line := fmt.Sprintf("%s%s %s %-8s %s", mark, pad(trunc(r.Name, nameW), nameW), stars, trunc(r.Language, 8), r.UpdatedAt)
-		line = trunc(line, w)
-		if i == m.cursor {
-			line = selStyle.Render(line)
-		}
-		fmt.Fprintf(b, "%s\n", line)
-	}
+	return h
 }
 
 func (m Model) fetchCmd(fresh bool) tea.Cmd {
@@ -286,79 +231,42 @@ func (m Model) State() string {
 	}
 }
 
-const barWidth = 20
-
-func colorBar(pct float64, lang string) string {
-	n := int(pct/100*barWidth + 0.5)
-	if n < 0 {
-		n = 0
-	}
-	if n > barWidth {
-		n = barWidth
-	}
-	fill := lipgloss.NewStyle().Foreground(langColor(lang)).Render(strings.Repeat("█", n))
-	empty := lipgloss.NewStyle().Faint(true).Render(strings.Repeat("░", barWidth-n))
-	return fill + empty
-}
-
-func langColor(name string) lipgloss.Color {
-	switch name {
-	case "Go":
-		return "#00ADD8"
-	case "Python":
-		return "#3572A5"
-	case "JavaScript":
-		return "#f1e05a"
-	case "TypeScript":
-		return "#3178c6"
-	case "Rust":
-		return "#dea584"
-	case "C":
-		return "#555555"
-	case "C++":
-		return "#f34b7d"
-	case "Java":
-		return "#b07219"
-	case "Ruby":
-		return "#701516"
-	case "HTML":
-		return "#e34c26"
-	case "CSS":
-		return "#563d7c"
-	case "Shell":
-		return "#89e051"
-	case "Other":
-		return "#6e7681"
-	default:
-		return "#58a6ff"
-	}
-}
-
+// pad fits s to exactly n display cells, truncating when it is too wide.
+// Truncation can land short of n — an ellipsis replacing a double-width
+// glyph gives back a column — so the result is padded out either way.
 func pad(s string, n int) string {
-	r := []rune(s)
-	if len(r) >= n {
-		return string(r[:n])
+	if n <= 0 {
+		return ""
 	}
-	return s + strings.Repeat(" ", n-len(r))
+	out := trunc(s, n)
+	w := lipgloss.Width(out)
+	if w >= n {
+		return out
+	}
+	return out + strings.Repeat(" ", n-w)
 }
 
+// trunc cuts s to at most n display cells, marking the cut with an ellipsis.
+// Width is measured in cells, not runes: a double-width glyph costs two.
 func trunc(s string, n int) string {
 	if n <= 0 {
 		return ""
 	}
-	r := []rune(s)
-	if len(r) <= n {
+	if lipgloss.Width(s) <= n {
 		return s
 	}
 	if n == 1 {
 		return "…"
 	}
-	return string(r[:n-1]) + "…"
+	var b strings.Builder
+	w := 0
+	for _, r := range s {
+		rw := lipgloss.Width(string(r))
+		if w+rw > n-1 {
+			break
+		}
+		b.WriteRune(r)
+		w += rw
+	}
+	return b.String() + "…"
 }
-
-var (
-	footerStyle = lipgloss.NewStyle().Faint(true)
-	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7ee787"))
-	colStyle    = lipgloss.NewStyle().Faint(true)
-	selStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#0d1117")).Background(lipgloss.Color("#58a6ff"))
-)
