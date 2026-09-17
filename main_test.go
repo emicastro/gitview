@@ -10,8 +10,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"emicastro.com/gitview/internal/cache"
+	"emicastro.com/gitview/internal/stats"
 )
 
 const dummyToken = "test-github-token"
@@ -223,5 +227,62 @@ func TestRunJSON(t *testing.T) {
 	}
 	if got["fetched_at"] != "2026-09-17T15:00:00Z" {
 		t.Fatalf("fetched_at = %v", got["fetched_at"])
+	}
+}
+
+func TestRunCacheHitWithoutToken(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	now := time.Date(2026, 9, 17, 15, 0, 0, 0, time.UTC)
+	st := cache.New(dir, func() time.Time { return now })
+	if err := st.Put("octocat", stats.Snapshot{
+		User:       "octocat",
+		FetchedAt:  now,
+		ReposCount: 1,
+		Stars:      10,
+		Languages:  []stats.Language{{Name: "Go", Bytes: 1, Percent: 100}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(500)
+	}))
+	t.Cleanup(srv.Close)
+
+	var stdout, stderr bytes.Buffer
+	code := runWith(context.Background(), []string{"-json", "octocat"}, deps{
+		getenv:   func(string) string { return "" },
+		stdout:   &stdout,
+		stderr:   &stderr,
+		baseURL:  srv.URL,
+		http:     srv.Client(),
+		now:      func() time.Time { return now },
+		cacheDir: dir,
+	})
+	if code != 0 {
+		t.Fatalf("exit %d stderr=%q", code, stderr.String())
+	}
+	if calls.Load() != 0 {
+		t.Fatalf("network called %d times", calls.Load())
+	}
+	if !strings.Contains(stdout.String(), `"cached": true`) {
+		t.Fatalf("stdout=%s", stdout.String())
+	}
+
+	code = runWith(context.Background(), []string{"-fresh", "-json", "octocat"}, deps{
+		getenv:   func(string) string { return "" },
+		stdout:   &stdout,
+		stderr:   &stderr,
+		baseURL:  srv.URL,
+		http:     srv.Client(),
+		now:      func() time.Time { return now },
+		cacheDir: dir,
+	})
+	if code != 2 {
+		t.Fatalf("fresh without token exit %d", code)
 	}
 }

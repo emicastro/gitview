@@ -35,7 +35,7 @@ Each task is one Implement session and ends in a runnable check.
 
 ## Group 6 — Cache + rate-limit messages (Slice 2)
 
-- [ ] **6.1** Disk cache, TTL 1h, `-fresh`, temp-dir tests. Cache file contains no token field. Second `Load` with valid cache does not call the test server.
+- [x] **6.1** Disk cache, TTL 1h, `-fresh`, temp-dir tests. Cache file contains no token field. Second `Load` with valid cache does not call the test server.
       Check: `go test -race -count=1 ./internal/cache ./...`
 
 ## Group 7 — TUI (Slices 3–4)

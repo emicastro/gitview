@@ -12,10 +12,15 @@ import (
 	"syscall"
 	"time"
 
+	"path/filepath"
+
+	"emicastro.com/gitview/internal/cache"
 	"emicastro.com/gitview/internal/github"
 	"emicastro.com/gitview/internal/render"
 	"emicastro.com/gitview/internal/stats"
 )
+
+var errTokenRequired = errors.New("GITHUB_TOKEN required")
 
 const (
 	version    = "0.1.0"
@@ -32,12 +37,13 @@ type config struct {
 }
 
 type deps struct {
-	getenv  func(string) string
-	stdout  io.Writer
-	stderr  io.Writer
-	baseURL string
-	http    *http.Client
-	now     func() time.Time
+	getenv   func(string) string
+	stdout   io.Writer
+	stderr   io.Writer
+	baseURL  string
+	http     *http.Client
+	now      func() time.Time
+	cacheDir string
 }
 
 func main() {
@@ -48,12 +54,23 @@ func main() {
 
 func run(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	return runWith(ctx, args, deps{
-		getenv:  getenv,
-		stdout:  stdout,
-		stderr:  stderr,
-		baseURL: defaultAPI,
-		now:     time.Now,
+		getenv:   getenv,
+		stdout:   stdout,
+		stderr:   stderr,
+		baseURL:  defaultAPI,
+		now:      time.Now,
+		cacheDir: cacheDir(getenv),
 	})
+}
+
+func cacheDir(getenv func(string) string) string {
+	if d := getenv("XDG_CACHE_HOME"); d != "" {
+		return filepath.Join(d, "gitview")
+	}
+	if home := getenv("HOME"); home != "" {
+		return filepath.Join(home, ".cache", "gitview")
+	}
+	return ""
 }
 
 func runWith(ctx context.Context, args []string, d deps) int {
@@ -83,14 +100,12 @@ func runWith(ctx context.Context, args []string, d deps) int {
 		return 0
 	}
 
-	token := d.getenv("GITHUB_TOKEN")
-	if token == "" {
-		fmt.Fprintln(d.stderr, "GITHUB_TOKEN required")
-		return 2
-	}
-
-	snap, err := load(ctx, cfg, token, d)
+	snap, err := load(ctx, cfg, d)
 	if err != nil {
+		if errors.Is(err, errTokenRequired) {
+			fmt.Fprintln(d.stderr, errTokenRequired)
+			return 2
+		}
 		fmt.Fprintln(d.stderr, err)
 		return 1
 	}
@@ -109,7 +124,24 @@ func runWith(ctx context.Context, args []string, d deps) int {
 	return 0
 }
 
-func load(ctx context.Context, cfg config, token string, d deps) (stats.Snapshot, error) {
+func load(ctx context.Context, cfg config, d deps) (stats.Snapshot, error) {
+	store := cache.New(d.cacheDir, d.now)
+	if !cfg.fresh && d.cacheDir != "" {
+		snap, ok, err := store.Get(cfg.user)
+		if err != nil {
+			return stats.Snapshot{}, err
+		}
+		if ok {
+			snap.Cached = true
+			return snap, nil
+		}
+	}
+
+	token := d.getenv("GITHUB_TOKEN")
+	if token == "" {
+		return stats.Snapshot{}, errTokenRequired
+	}
+
 	c := github.New(d.baseURL, token, d.http)
 	repos, err := c.Fetch(ctx, cfg.user, cfg.includeForks, d.stderr)
 	if err != nil {
@@ -128,7 +160,13 @@ func load(ctx context.Context, cfg config, token string, d deps) (stats.Snapshot
 			LangBytes: r.Languages,
 		})
 	}
-	return stats.Build(cfg.user, d.now(), false, in, cfg.top), nil
+	snap := stats.Build(cfg.user, d.now(), false, in, cfg.top)
+	if d.cacheDir != "" {
+		if err := store.Put(cfg.user, snap); err != nil {
+			fmt.Fprintf(d.stderr, "cache write: %v\n", err)
+		}
+	}
+	return snap, nil
 }
 
 func parseArgs(args []string, stderr io.Writer) (config, error) {
