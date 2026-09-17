@@ -138,8 +138,14 @@ func TestListNavigationAndLayout(t *testing.T) {
 	if strings.Contains(view, "XXXXXXXXXXXX") {
 		t.Fatalf("name not truncated: %q", view)
 	}
+	if !strings.Contains(view, "UPDATED") || !strings.Contains(view, "STARS") {
+		t.Fatalf("missing column headers: %q", view)
+	}
 	if !strings.Contains(view, "2026-01-02") {
 		t.Fatalf("missing updated: %q", view)
+	}
+	if strings.Contains(stripANSI(view), "    0 ") {
+		t.Fatalf("zero stars should not be a raw 0 column: %q", view)
 	}
 	if strings.Contains(view, "repo-39") {
 		t.Fatalf("viewport did not clip: %q", view)

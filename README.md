@@ -20,7 +20,16 @@ export GITHUB_TOKEN
 export GITHUB_TOKEN="$(cat /path/to/local/token-file)"
 ```
 
-A classic PAT or a fine-grained token that can read public repositories is enough. The token is never printed in logs, JSON, the cache file, or the TUI.
+Public repos of any user work with a token that can read public data.
+
+**Your own private repos** appear only when `<user>` is your GitHub login **and** the token can read private repos:
+
+- Classic PAT: enable the `repo` scope (not public_repo only).
+- Fine-grained PAT: resource owner = you, repository access = **All repositories** (or the private ones you care about).
+
+`GET /users/{you}/repos` is public-only even with a powerful token; gitview uses `GET /user/repos` when the login matches. Organization repos are still excluded.
+
+The token is never printed in logs, JSON, the cache file, or the TUI. If you ran gitview before private-repo support, pass `-fresh` (or wait an hour) so the cache is not reused.
 
 `-h`, `-version`, and a cache hit less than one hour old do not need a token.
 

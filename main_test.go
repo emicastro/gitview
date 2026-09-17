@@ -178,6 +178,10 @@ func TestRunJSON(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/user" {
+			_ = json.NewEncoder(w).Encode(map[string]string{"login": "other"})
+			return
+		}
 		if strings.HasSuffix(r.URL.Path, "/languages") {
 			_ = json.NewEncoder(w).Encode(map[string]int64{"Go": 12000, "C": 1000})
 			return

@@ -1,6 +1,6 @@
 # gitview
 
-Go CLI + TUI that shows a GitHub user's public activity in the terminal.
+Go CLI + TUI that shows a GitHub user's repositories in the terminal (private included when you view your own login with a token that can read them).
 
 Invocation:
 
@@ -82,6 +82,7 @@ Source: GitHub REST API.
 Inclusion rules:
 
 - Only repos of the requested user.
+- If the token's `/user` login matches `<user>`, include private owned repos (`GET /user/repos`). Otherwise public only (`GET /users/{user}/repos`). See `docs/adr/0004-authenticated-private-repos.md`.
 - Without `-forks`, drop `fork == true`.
 - Drop repos with no languages map (empty or a one-off error).
 - A failure on a repo's `/languages` does not abort the rest: skip it and warn on stderr.

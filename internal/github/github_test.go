@@ -25,9 +25,13 @@ func TestListReposPaginatesAndAuth(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ua = r.Header.Get("User-Agent")
 		auth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/user" {
+			_ = json.NewEncoder(w).Encode(map[string]string{"login": "someone-else"})
+			return
+		}
 		path = r.URL.Path
 		pages++
-		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Query().Get("page") == "2" {
 			_ = json.NewEncoder(w).Encode([]map[string]any{
 				{"name": "b", "fork": false, "stargazers_count": 1, "language": "Go", "updated_at": "2026-01-02T00:00:00Z", "owner": map[string]string{"login": "octocat"}},
@@ -60,6 +64,39 @@ func TestListReposPaginatesAndAuth(t *testing.T) {
 	}
 	if repos[0].Name != "a" || !repos[0].Fork || repos[0].Stars != 3 {
 		t.Fatalf("repo0 = %+v", repos[0])
+	}
+}
+
+func TestListReposSelfIncludesPrivate(t *testing.T) {
+	t.Parallel()
+
+	var usedUserRepos, usedPublic bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/user":
+			_ = json.NewEncoder(w).Encode(map[string]string{"login": "octocat"})
+		case "/user/repos":
+			usedUserRepos = true
+			_ = json.NewEncoder(w).Encode([]map[string]any{
+				{"name": "secret", "fork": false, "private": true, "stargazers_count": 0, "language": "Go", "updated_at": "2026-01-02T00:00:00Z", "owner": map[string]string{"login": "octocat"}},
+			})
+		case "/users/octocat/repos":
+			usedPublic = true
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c := New(srv.URL, testToken, srv.Client())
+	repos, err := c.ListRepos(context.Background(), "Octocat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if usedPublic || !usedUserRepos || len(repos) != 1 || repos[0].Name != "secret" {
+		t.Fatalf("userRepos=%v public=%v repos=%+v", usedUserRepos, usedPublic, repos)
 	}
 }
 
@@ -139,6 +176,10 @@ func TestFetchSkipsLanguagesFailureAndEmpty(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/user" {
+			_ = json.NewEncoder(w).Encode(map[string]string{"login": "other"})
+			return
+		}
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/repos") && !strings.Contains(r.URL.Path, "/languages"):
 			_ = json.NewEncoder(w).Encode([]map[string]any{
@@ -181,6 +222,10 @@ func TestFetchDropsForksAndCapsConcurrency(t *testing.T) {
 	var current, max atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/user" {
+			_ = json.NewEncoder(w).Encode(map[string]string{"login": "other"})
+			return
+		}
 		if strings.HasSuffix(r.URL.Path, "/repos") && !strings.Contains(r.URL.Path, "/languages") {
 			var list []map[string]any
 			for _, name := range []string{"r1", "r2", "r3", "r4", "r5", "forked"} {

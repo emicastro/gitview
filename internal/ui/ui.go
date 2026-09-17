@@ -156,8 +156,8 @@ func (m Model) repoRows() int {
 	if h < 1 {
 		h = defaultHeight
 	}
-	// header + languages + footer
-	used := 1 + len(m.snap.Languages) + 1
+	// header + languages + column titles + footer
+	used := 1 + len(m.snap.Languages) + 1 + 1
 	rows := h - used
 	if rows < 1 {
 		return 1
@@ -192,10 +192,23 @@ func (m Model) writeReady(b *strings.Builder, w int) {
 	if m.snap.Cached {
 		src = "cached"
 	}
-	fmt.Fprintf(b, "%s\n", trunc(fmt.Sprintf("@%s  repos=%d  stars=%d  %s", m.snap.User, m.snap.ReposCount, m.snap.Stars, src), w))
+	head := fmt.Sprintf("@%s   %d repos   %d stars   %s", m.snap.User, m.snap.ReposCount, m.snap.Stars, src)
+	fmt.Fprintf(b, "%s\n", headerStyle.Render(trunc(head, w)))
 	for _, l := range m.snap.Languages {
-		fmt.Fprintf(b, "%s\n", trunc(fmt.Sprintf("%s %s %5.1f%%", pad(l.Name, 12), bar(l.Percent), l.Percent), w))
+		name := pad(trunc(l.Name, 12), 12)
+		name = lipgloss.NewStyle().Foreground(langColor(l.Name)).Render(name)
+		pct := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("%5.1f%%", l.Percent))
+		fmt.Fprintf(b, "%s %s %s\n", name, colorBar(l.Percent, l.Name), pct)
 	}
+
+	nameW := w - 2 - 1 - 5 - 1 - 8 - 1 - 10
+	if nameW < 4 {
+		nameW = 4
+	}
+	fmt.Fprintf(b, "%s\n", colStyle.Render(trunc(
+		fmt.Sprintf("  %s %5s %-8s %s", pad("NAME", nameW), "STARS", "LANG", "UPDATED"),
+		w,
+	)))
 
 	repos := m.snap.Repos
 	vis := m.repoRows()
@@ -212,12 +225,16 @@ func (m Model) writeReady(b *strings.Builder, w int) {
 		if i == m.cursor {
 			mark = "> "
 		}
-		nameW := w - 2 - 1 - 5 - 1 - 8 - 1 - 10
-		if nameW < 4 {
-			nameW = 4
+		stars := "    —"
+		if r.Stars > 0 {
+			stars = fmt.Sprintf("%5d", r.Stars)
 		}
-		line := fmt.Sprintf("%s%s %5d %-8s %s", mark, pad(trunc(r.Name, nameW), nameW), r.Stars, trunc(r.Language, 8), r.UpdatedAt)
-		fmt.Fprintf(b, "%s\n", trunc(line, w))
+		line := fmt.Sprintf("%s%s %s %-8s %s", mark, pad(trunc(r.Name, nameW), nameW), stars, trunc(r.Language, 8), r.UpdatedAt)
+		line = trunc(line, w)
+		if i == m.cursor {
+			line = selStyle.Render(line)
+		}
+		fmt.Fprintf(b, "%s\n", line)
 	}
 }
 
@@ -247,7 +264,7 @@ func (m Model) State() string {
 
 const barWidth = 20
 
-func bar(pct float64) string {
+func colorBar(pct float64, lang string) string {
 	n := int(pct/100*barWidth + 0.5)
 	if n < 0 {
 		n = 0
@@ -255,7 +272,42 @@ func bar(pct float64) string {
 	if n > barWidth {
 		n = barWidth
 	}
-	return strings.Repeat("█", n) + strings.Repeat(" ", barWidth-n)
+	fill := lipgloss.NewStyle().Foreground(langColor(lang)).Render(strings.Repeat("█", n))
+	empty := lipgloss.NewStyle().Faint(true).Render(strings.Repeat("░", barWidth-n))
+	return fill + empty
+}
+
+func langColor(name string) lipgloss.Color {
+	switch name {
+	case "Go":
+		return "#00ADD8"
+	case "Python":
+		return "#3572A5"
+	case "JavaScript":
+		return "#f1e05a"
+	case "TypeScript":
+		return "#3178c6"
+	case "Rust":
+		return "#dea584"
+	case "C":
+		return "#555555"
+	case "C++":
+		return "#f34b7d"
+	case "Java":
+		return "#b07219"
+	case "Ruby":
+		return "#701516"
+	case "HTML":
+		return "#e34c26"
+	case "CSS":
+		return "#563d7c"
+	case "Shell":
+		return "#89e051"
+	case "Other":
+		return "#6e7681"
+	default:
+		return "#58a6ff"
+	}
 }
 
 func pad(s string, n int) string {
@@ -280,4 +332,9 @@ func trunc(s string, n int) string {
 	return string(r[:n-1]) + "…"
 }
 
-var footerStyle = lipgloss.NewStyle().Faint(true)
+var (
+	footerStyle = lipgloss.NewStyle().Faint(true)
+	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7ee787"))
+	colStyle    = lipgloss.NewStyle().Faint(true)
+	selStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#0d1117")).Background(lipgloss.Color("#58a6ff"))
+)

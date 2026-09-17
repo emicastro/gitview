@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -60,8 +61,29 @@ type listRepo struct {
 	} `json:"owner"`
 }
 
+func (c *Client) me(ctx context.Context) (string, error) {
+	var body struct {
+		Login string `json:"login"`
+	}
+	_, err := c.getJSON(ctx, c.baseURL+"/user", "", &body)
+	if err != nil {
+		return "", err
+	}
+	return body.Login, nil
+}
+
 func (c *Client) ListRepos(ctx context.Context, user string) ([]Repo, error) {
 	u := c.baseURL + "/users/" + url.PathEscape(user) + "/repos?per_page=100&type=owner"
+	login, err := c.me(ctx)
+	if err != nil {
+		var auth AuthError
+		var rl RateLimitError
+		if errors.As(err, &auth) || errors.As(err, &rl) {
+			return nil, err
+		}
+	} else if strings.EqualFold(login, user) {
+		u = c.baseURL + "/user/repos?per_page=100&affiliation=owner"
+	}
 	var out []Repo
 	for u != "" {
 		var page []listRepo

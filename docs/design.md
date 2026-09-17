@@ -4,7 +4,7 @@ Status: accepted
 Date: 2026-09-17
 Source of truth for requirements: `docs/requirements.md`.
 
-Cites `docs/adr/0001-github-token-required.md`, `docs/adr/0002-stdlib-http.md`, `docs/adr/0003-bubbletea-tui.md`.
+Cites `docs/adr/0001-github-token-required.md`, `docs/adr/0002-stdlib-http.md`, `docs/adr/0003-bubbletea-tui.md`, `docs/adr/0004-authenticated-private-repos.md`.
 
 ## Process
 
@@ -42,7 +42,7 @@ Shared by `-json` and the TUI:
 
 1. Unless `-fresh`, try cache for `<user>` (`$XDG_CACHE_HOME/gitview/<user>.json` or `~/.cache/gitview/<user>.json`). Username is a single path segment; `/` and `..` are rejected. Hit if file exists, parses, and `fetched_at` is within 1 hour → `cached=true`, no network, no token.
 2. Else require token (ADR 0001).
-3. Client (ADR 0002): `GET /users/{user}/repos?per_page=100&type=owner`, paginate `Link`. Timeout 10s. `User-Agent: gitview/0.1`. `Authorization: Bearer <token>`.
+3. Client (ADR 0002, ADR 0004): `GET /user`. If that login matches `<user>`, `GET /user/repos?per_page=100&affiliation=owner`; else `GET /users/{user}/repos?per_page=100&type=owner`. Paginate `Link`. Timeout 10s. `User-Agent: gitview/0.1`. `Authorization: Bearer <token>`.
 4. Drop `fork==true` unless `-forks`.
 5. At most 4 concurrent `GET /repos/{owner}/{repo}/languages`. One-off failure: skip repo, warn on stderr, continue.
 6. `stats`: sum bytes by language; `TopN(n)` + `Other`; repos by stars desc, name asc; total stars = sum of included `stargazers_count`.

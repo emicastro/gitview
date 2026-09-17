@@ -49,3 +49,10 @@ Each task is one Implement session and ends in a runnable check.
 
 - [x] **8.1** README: build, `export GITHUB_TOKEN`, flags, limits, “token is never printed”. Confirm `.env` ignored. Full verify recipe.
       Check: `gofmt -l . | grep . && exit 1; go vet ./...; go test ./...; go test -race ./...`
+
+## Group 9 — Private repos and TUI polish
+
+- [x] **9.1** When `GET /user` login matches `<user>`, list `/user/repos` (private owned). Otherwise keep public `/users/{user}/repos`. Tests cover both. Classic PAT needs `repo`; fine-grained needs private repo access.
+      Check: `go test -race -count=1 ./internal/github`
+- [x] **9.2** TUI: colored language bars, column headers (name / stars / language / updated), 0 stars as em dash, selected row highlighted. Still usable at 80×24.
+      Check: `go test -race -count=1 ./internal/ui`
