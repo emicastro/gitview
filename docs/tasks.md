@@ -13,9 +13,9 @@ Each task is one Implement session and ends in a runnable check.
 
 ## Group 2 — CLI binary tests (Slice 0)
 
-- [ ] **2.1** `parseArgs` returns errors (no `os.Exit`). Add `-fresh`, `-version`. Table-driven tests: missing user, `-top 0`, unknown flag, happy path, flags after user ignored by `flag`.
+- [x] **2.1** `parseArgs` returns errors (no `os.Exit`). Add `-fresh`, `-version`. Table-driven tests: missing user, `-top 0`, unknown flag, happy path, flags after user ignored by `flag`.
       Check: `go test -race -count=1 -run 'TestParseArgs' .`
-- [ ] **2.2** `run(...) int` wires parse → stdout config-or-dispatch later. Tests: `-h` and `-version` exit 0 with no token; missing user exit 2; missing token on a fetch path exit 2 with exact `GITHUB_TOKEN required` and no secret in stdout/stderr (`t.Setenv` empty vs dummy).
+- [x] **2.2** `run(...) int` wires parse → stdout config-or-dispatch later. Tests: `-h` and `-version` exit 0 with no token; missing user exit 2; missing token on a fetch path exit 2 with exact `GITHUB_TOKEN required` and no secret in stdout/stderr (`t.Setenv` empty vs dummy).
       Check: `go test -race -count=1 -run 'TestRun' .`
 
 ## Group 3 — Domain (Slice 1 stats)

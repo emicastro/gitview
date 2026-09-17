@@ -1,0 +1,169 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"flag"
+	"io"
+	"strings"
+	"testing"
+)
+
+const dummyToken = "test-github-token"
+
+func TestParseArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		args    []string
+		want    config
+		wantErr string
+		help    bool
+	}{
+		{
+			name: "happy",
+			args: []string{"-top", "3", "-json", "-forks", "-fresh", "octocat"},
+			want: config{user: "octocat", top: 3, json: true, includeForks: true, fresh: true},
+		},
+		{
+			name: "defaults",
+			args: []string{"octocat"},
+			want: config{user: "octocat", top: 8},
+		},
+		{
+			name:    "missing user",
+			args:    []string{"-json"},
+			wantErr: "user required",
+		},
+		{
+			name:    "top zero",
+			args:    []string{"-top", "0", "octocat"},
+			wantErr: "top must be >= 1",
+		},
+		{
+			name:    "unknown flag",
+			args:    []string{"-nope", "octocat"},
+			wantErr: "flag provided but not defined: -nope",
+		},
+		{
+			name: "flags after user are not options",
+			args: []string{"octocat", "-json"},
+			want: config{user: "octocat", top: 8},
+		},
+		{
+			name: "version without user",
+			args: []string{"-version"},
+			want: config{top: 8, version: true},
+		},
+		{
+			name: "help",
+			args: []string{"-h"},
+			help: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := parseArgs(tt.args, io.Discard)
+			if tt.help {
+				if !errors.Is(err, flag.ErrHelp) {
+					t.Fatalf("err = %v, want flag.ErrHelp", err)
+				}
+				return
+			}
+			if tt.wantErr != "" {
+				if err == nil || err.Error() != tt.wantErr {
+					t.Fatalf("err = %v, want %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseArgs: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("got %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRun(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		token      string
+		wantCode   int
+		wantStdout string
+		wantStderr string
+		forbid     string
+	}{
+		{
+			name:       "help without token",
+			args:       []string{"-h"},
+			wantCode:   0,
+			wantStdout: "",
+		},
+		{
+			name:       "version without token",
+			args:       []string{"-version"},
+			wantCode:   0,
+			wantStdout: "gitview 0.1.0\n",
+		},
+		{
+			name:       "missing user",
+			args:       []string{},
+			wantCode:   2,
+			wantStderr: "user required\n",
+		},
+		{
+			name:       "missing token on fetch path",
+			args:       []string{"octocat"},
+			wantCode:   2,
+			wantStderr: "GITHUB_TOKEN required\n",
+		},
+		{
+			name:       "dummy token not leaked",
+			args:       []string{"octocat"},
+			token:      dummyToken,
+			wantCode:   0,
+			wantStdout: "user:octocat top:8 json:false forks:false fresh:false\n",
+			forbid:     dummyToken,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var stdout, stderr bytes.Buffer
+			getenv := func(key string) string {
+				if key == "GITHUB_TOKEN" {
+					return tt.token
+				}
+				return ""
+			}
+			code := run(context.Background(), tt.args, getenv, &stdout, &stderr)
+			if code != tt.wantCode {
+				t.Fatalf("exit %d, want %d; stderr=%q stdout=%q", code, tt.wantCode, stderr.String(), stdout.String())
+			}
+			if tt.wantStdout != "" && stdout.String() != tt.wantStdout {
+				t.Fatalf("stdout = %q, want %q", stdout.String(), tt.wantStdout)
+			}
+			if tt.wantStderr != "" && stderr.String() != tt.wantStderr {
+				t.Fatalf("stderr = %q, want %q", stderr.String(), tt.wantStderr)
+			}
+			forbid := tt.forbid
+			if forbid == "" {
+				forbid = dummyToken
+			}
+			out := stdout.String() + stderr.String()
+			if forbid != "" && strings.Contains(out, forbid) {
+				t.Fatalf("token leaked in output %q", out)
+			}
+		})
+	}
+}
